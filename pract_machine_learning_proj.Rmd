@@ -1,0 +1,77 @@
+---
+title: "Predict the excercise activity using the data collected by the wearable devices"
+output:
+  md_document
+---
+### Special thanks to web archive http://web.archive.org/ for allwoing to use the datasets
+### This report shows the predictive analysis using Machine learning algorithm for the 20 cases in the  excercise data 
+### Data is collected  from accelerometers on the belt, forearm, arm, and dumbell of 6 participants
+### Load the training and test data 
+* Note: Reduced data set used as the PC where this report ran is having less computing power *
+
+```{r load, include=TRUE}
+fpath <- "F:/c8proj/"
+  trainfname <- "pml-training.csv"
+  setwd(fpath)
+  testfname <- "pml-testing.csv"
+  
+  if (!file.exists(trainfname)){
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",trainfname)
+  }
+  
+  if (!file.exists(testfname)){
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",testfname)
+    }
+  
+  traindset <- read.csv("pml-training.csv",header = TRUE , nrows = 6000 ,na.strings = c("NA", ""))
+  testdset <- read.csv("pml-testing.csv",header = TRUE,na.strings = c("NA", ""))
+```
+### Load all required libraries Caret, rpart , random forest
+```{r loadlib, include=TRUE}
+library(caret)
+library(rpart)
+library(randomForest)
+library(repmis)
+```
+### Clean and split the data into test and validation partitions
+```{r Split, include=TRUE}
+traindset <- traindset[, -c(1:7)]
+testdset <- testdset[, -c(1:7)]
+traindset <- traindset[, colSums(is.na(traindset)) == 0]
+testdset <- testdset[, colSums(is.na(testdset)) == 0]
+set.seed(7826) 
+partn <- createDataPartition(traindset$classe , p=0.7 ,list=FALSE)
+trainpart <- traindset[partn, ]
+validpart <- traindset[-partn, ] 
+```
+### Create models using the training data for determining the accuracy
+```{r models, include=TRUE}
+set.seed(7826) 
+control <- trainControl(method="cv", number=5)
+fit_rpart <- train(classe~., data=trainpart, method="rpart", metric ="Accuracy",trControl=control)
+fit_svm <- train(classe~., data=trainpart, method="svmRadial", metric ="Accuracy",trControl=control)
+```
+### Select the best model
+```{r best,  fig.width=8,fig.height=6,include=TRUE}
+set.seed(7826) 
+results <- resamples(list(cart=fit_rpart, svm=fit_svm))
+summary(results)
+summary(diff(results))
+bwplot(results,metric="Accuracy",main="CART Vs SVM")
+```
+
+```{r predict, include=TRUE}
+##Based on the results SVM is the best model to  be used##
+predict_val <- predict(fit_svm, validpart)
+confusionMatrix(predict_val, validpart$classe)
+```
+###Now use SVM model to predict the test data set
+```{r predict_test, include=TRUE}
+predict_test <- predict(fit_svm, testdset)
+print(predict_test)
+```
+*End of Report*
+
+
+
+
